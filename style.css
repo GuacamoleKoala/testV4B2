@@ -1,0 +1,10 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#map {
+    height: 100vh; /* De kaart vult de volledige viewport hoogte */
+    width: 100vw;  /* De kaart vult de volledige viewport breedte */
+}
