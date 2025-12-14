@@ -2,16 +2,54 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Netwerk Visualisatie</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    
     <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
+    
     <div id="map"></div>
+
+    <div id="sidebar">
+        <h2>Netwerk Analyse</h2>
+        
+        <div class="panel">
+            <h3>Korte Beschrijving</h3>
+            <p>
+                Dit netwerk visualiseert de relaties tussen personen en locaties (steden/plaatsen) op basis van de geanalyseerde data. 
+                Klik op een knoop (cirkel) om de relaties te zien. Clusters geven overlappende locaties weer.
+            </p>
+        </div>
+        
+        <div class="panel">
+            <h3>Zoeken & Filteren</h3>
+            <input type="text" id="search-input" placeholder="Zoek op naam..." onkeyup="filterMap()">
+            
+            <label for="filter-type">Filter op Knooppunt Type:</label>
+            <select id="filter-type" onchange="filterMap()">
+                <option value="all">Toon Alles</option>
+                <option value="Person">Personen</option>
+                <option value="City">Plaatsen</option>
+                </select>
+        </div>
+        
+        <div class="panel">
+            <h3>Legenda</h3>
+            <div id="legend-content">
+                </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    
     <script src="script.js"></script>
 </body>
 </html>
