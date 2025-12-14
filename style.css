@@ -5,6 +5,49 @@ body, html {
 }
 
 #map {
-    height: 100vh; /* De kaart vult de volledige viewport hoogte */
-    width: 100vw;  /* De kaart vult de volledige viewport breedte */
+    height: 100vh;
+    width: 100vw;
+}
+
+/* NIEUWE STIJL VOOR ZIJBALK */
+#sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px; /* Vaste breedte */
+    height: 100vh;
+    background-color: white;
+    padding: 15px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+    z-index: 1000; /* Zorg ervoor dat het boven de kaart ligt */
+    overflow-y: auto; /* Scrollen mogelijk maken bij veel content */
+    font-family: Arial, sans-serif;
+}
+
+#sidebar h2, #sidebar h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.panel {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* STIJL VOOR ZOEK- EN FILTERVELDEN */
+#search-input, #filter-type {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0 10px 0;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* STIJL VOOR POPUP IN KAART (voor betere leesbaarheid) */
+.leaflet-popup-content {
+    font-size: 13px;
+    max-height: 250px;
+    overflow-y: auto;
 }
