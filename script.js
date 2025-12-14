@@ -2,7 +2,15 @@
 const map = L.map('map').setView([50.85, 4.35], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-const markers = L.markerClusterGroup({ spiderfyOnMaxZoom: true });
+// MarkerClusterGroup is de oplossing voor overlappende bolletjes, 
+// maar u wilt 'spiderfication' (uitspreiden) zien als u inzoomt
+// (spiderfyOnMaxZoom: true zorgt daarvoor).
+const markers = L.markerClusterGroup({ 
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true
+});
+
 let fullGeoJsonData = null; // Opslag voor de ruwe data
 let geoJsonLayer = null;    // De actieve Leaflet laag
 
@@ -13,8 +21,10 @@ const nodeColors = {
     // Voeg hier meer types en kleuren toe indien nodig
 };
 
-// Functie om de HTML voor de relatiepopup te genereren
-function generatePopupHtml(props) {
+// --- FUNCTIES VOOR INTERACTIE ---
+
+// Functie om de HTML voor de relatiepopup te genereren (Knoop klik)
+function generateNodePopupHtml(props) {
     let popupHtml = `<div class="node-popup">
         <h3>${props.label}</h3>
         <p><b>Type:</b> ${props.type}</p>
@@ -22,11 +32,15 @@ function generatePopupHtml(props) {
         <b>Relaties (${props.relations ? props.relations.length : 0}):</b><br>
         <ul style="max-height: 150px; overflow-y: auto; padding-left: 20px;">`;
 
-    if (props.relations && props.relations.length > 0) {
-        props.relations.forEach(rel => {
-            // Gebruik een Font Awesome icoon om de richting aan te geven
+    // Sorteer relaties op richting (in/uitgaand) voor overzicht
+    const sortedRelations = props.relations.sort((a, b) => a.dir.localeCompare(b.dir));
+
+    if (sortedRelations && sortedRelations.length > 0) {
+        sortedRelations.forEach(rel => {
+            // "van" betekent inkomend, "naar" betekent uitgaand
+            const directionText = rel.dir === "naar" ? 'gaat naar' : 'komt van';
             const icon = rel.dir === "naar" ? '<i class="fas fa-arrow-right"></i>' : '<i class="fas fa-arrow-left"></i>';
-            popupHtml += `<li>${icon} <i>${rel.rel}</i> <b>${rel.target}</b></li>`;
+            popupHtml += `<li>${icon} ${rel.rel} ${directionText} <b>${rel.target}</b></li>`;
         });
     } else {
         popupHtml += "<li>Geen directe relaties gevonden.</li>";
@@ -35,15 +49,36 @@ function generatePopupHtml(props) {
     return popupHtml;
 }
 
-// Functie om de kaartlaag te tekenen
+// Functie om de popup voor een Lijn te genereren (Lijn klik)
+function generateLinePopupHtml(props) {
+     return `
+        <h3>Relatie Detail</h3>
+        <p><b>Type:</b> ${props.relationship}</p>
+        <p><b>Van:</b> ${props.source_label || props.source_id}</p>
+        <p><b>Naar:</b> ${props.target_label || props.target_id}</p>
+    `;
+}
+
+// Algemene functie voor popups op alle GeoJSON features
+function onEachFeature(feature, layer) {
+    if (feature.geometry.type === 'LineString') {
+        // Alleen lijnen binden aan de geoJsonLayer
+        layer.bindPopup(generateLinePopupHtml(feature.properties), { minWidth: 200 });
+    }
+    // Punten worden al behandeld in pointToLayer en de clustergroep
+}
+
+
+// --- FUNCTIES VOOR KAART WEERGAVE EN FILTERING ---
+
 function drawMap(data) {
-    // 1. Verwijder de oude lagen (zowel markers als lijnen)
+    // 1. Verwijder de oude lagen
     if (geoJsonLayer) {
         map.removeLayer(geoJsonLayer);
     }
     markers.clearLayers();
 
-    // 2. Filter de data om alleen de getoonde features te bevatten
+    // 2. Filter de data om alleen de features te tonen die 'visible' zijn
     const filteredFeatures = data.features.filter(f => f.visible);
 
     // 3. Teken de nieuwe laag
@@ -51,6 +86,7 @@ function drawMap(data) {
         type: 'FeatureCollection',
         features: filteredFeatures
     }, {
+        // Functie voor punten (Nodes)
         pointToLayer: (feature, latlng) => {
             if (feature.geometry.type === 'Point') {
                 const props = feature.properties;
@@ -64,71 +100,69 @@ function drawMap(data) {
                     fillOpacity: 0.8
                 });
 
-                marker.bindPopup(generatePopupHtml(props), { minWidth: 250 });
+                // Knoop-popup met relatie-lijst
+                marker.bindPopup(generateNodePopupHtml(props), { minWidth: 250 });
                 markers.addLayer(marker);
-                return null; // Voeg het niet toe aan de geoJsonLayer, maar aan de markers
+                return null; 
             }
             return null;
         },
+        // Functie voor lijnen (Edges)
         style: (feature) => {
             if (feature.geometry.type === 'LineString') {
-                // Lijnen zijn dun en lichtgrijs voor overzicht, alleen in de hoofdlaag
                 return { color: '#888', weight: 1, opacity: 0.3 };
             }
-        }
+            return {};
+        },
+        // Bind de popup aan de lijnen
+        onEachFeature: onEachFeature 
     });
 
-    // Voeg de lagen toe aan de kaart en pas de weergave aan
+    // Voeg de lagen toe aan de kaart
     map.addLayer(markers);
     geoJsonLayer.addTo(map);
 
-    if (filteredFeatures.length > 0) {
-         // Probeer de markers te fitten, zo niet, fit de totale laag
-        const bounds = markers.getBounds().isValid() ? markers.getBounds() : geoJsonLayer.getBounds();
-        if (bounds.isValid()) {
-             map.fitBounds(bounds, { padding: [50, 50] });
-        }
+    // Pas de weergave aan
+    if (markers.getLayers().length > 0) {
+         map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+    } else if (geoJsonLayer.getLayers().length > 0) {
+        map.fitBounds(geoJsonLayer.getBounds(), { padding: [50, 50] });
     }
 }
 
-// Functie voor filteren en zoeken
+// Functie voor filteren en zoeken (onveranderd)
 window.filterMap = function() {
     if (!fullGeoJsonData) return;
 
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const filterType = document.getElementById('filter-type').value;
 
-    // Clone de data om aanpassingen te maken
     const filteredData = JSON.parse(JSON.stringify(fullGeoJsonData));
 
     filteredData.features.forEach(feature => {
-        feature.visible = true; // Standaard tonen
+        feature.visible = true;
         const props = feature.properties;
 
         if (feature.geometry.type === 'Point') {
-            // 1. Zoekfilter
             const label = props.label ? props.label.toLowerCase() : '';
+            
             if (searchTerm && !label.includes(searchTerm)) {
                 feature.visible = false;
             }
 
-            // 2. Typefilter
             if (feature.visible && filterType !== 'all' && props.type !== filterType) {
                 feature.visible = false;
             }
-
         } else if (feature.geometry.type === 'LineString') {
-            // Lijnen moeten alleen zichtbaar zijn als BEIDE knooppunten zichtbaar zijn.
-            // Omdat we in deze simpele implementatie de knopen en lijnen niet perfect linken tijdens het filteren,
-            // verbergen we lijnen simpelweg niet bij het filteren van knooppunten. 
-            // Een geavanceerdere aanpak zou vereist zijn, maar voor nu houden we ze zichtbaar.
+            // Lijnen blijven altijd zichtbaar in deze versie, tenzij hun nodes zijn gefilterd in Python
+            // Voor nu houden we de simpele benadering: verberg de lijn niet op basis van de JS filters.
         }
     });
 
     drawMap(filteredData);
 };
 
-// Functie om de legenda te vullen
+// Functie om de legenda te vullen (onveranderd)
 function createLegend() {
     const legendContent = document.getElementById('legend-content');
     let html = '<h4>Knooppunten (Locaties/Personen)</h4>';
@@ -149,13 +183,11 @@ function createLegend() {
     legendContent.innerHTML = html;
 }
 
-// Start de applicatie door de data te laden
+// Start de applicatie
 fetch('network_data_with_relations.geojson')
     .then(res => res.json())
     .then(data => {
         fullGeoJsonData = data;
-        
-        // Initialiseer de 'visible' eigenschap voor alle features
         fullGeoJsonData.features.forEach(f => f.visible = true);
         
         drawMap(fullGeoJsonData);
@@ -163,5 +195,4 @@ fetch('network_data_with_relations.geojson')
     })
     .catch(error => {
         console.error('Fout bij het laden van de GeoJSON data:', error);
-        alert('Kan data niet laden. Controleer de browser console (F12).');
     });
